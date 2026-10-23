@@ -3749,6 +3749,73 @@ do
 			end
 			return false
 		end
+		-- AI-capable riddle helper. It displays answers only; it does not type or redeem them.
+		-- Configure _G.__SabRiddleApiKey before running to enable an OpenAI-compatible AI endpoint.
+		local function __SabSolveRiddle(text)
+			local raw = tostring(text or "")
+			local apiKey = tostring(_G.__SabRiddleApiKey or "")
+			local endpoint = tostring(_G.__SabRiddleApiEndpoint or "https://api.openai.com/v1/chat/completions")
+			local httpRequest = request or http_request or (syn and syn.request) or (http and http.request)
+			if apiKey ~= "" and type(httpRequest) == "function" then
+				local okHttp, HttpService = pcall(function() return game:GetService("HttpService") end)
+				if okHttp and HttpService then
+					local payload = {
+						model = tostring(_G.__SabRiddleModel or "gpt-4o-mini"),
+						temperature = 0,
+						max_tokens = 80,
+						messages = {
+							{role = "system", content = "Solve the riddle or simple math question. Return only the shortest answer, no explanation. If it asks for a number, return only the number."},
+							{role = "user", content = raw},
+						},
+					}
+					local okEncode, body = pcall(function() return HttpService:JSONEncode(payload) end)
+					if okEncode then
+						local okReq, response = pcall(function()
+							return httpRequest({Url = endpoint, Method = "POST", Headers = {
+								["Content-Type"] = "application/json", ["Authorization"] = "Bearer " .. apiKey,
+							}, Body = body})
+						end)
+						if okReq and response then
+							local responseBody = response.Body or response.body
+							if responseBody then
+								local okDecode, decoded = pcall(function() return HttpService:JSONDecode(responseBody) end)
+								if okDecode and decoded and decoded.choices and decoded.choices[1] and decoded.choices[1].message then
+									local answer = tostring(decoded.choices[1].message.content or ""):gsub("^%s+", ""):gsub("%s+$", "")
+									answer = answer:gsub("^[`]+", ""):gsub("[`]+$", "")
+									if answer ~= "" and #answer <= 120 then return answer end
+								end
+							end
+						end
+					end
+				end
+			end
+			-- Offline fallback when no AI key is configured or the request fails.
+			local q = raw:lower():gsub("[^%w%s%+%-%/%*]", " ")
+			local function mathAnswer(op)
+				local x, y = q:match("(%d+)%s*" .. op .. "%s*(%d+)")
+				if not x then return nil end
+				x, y = tonumber(x), tonumber(y)
+				if op == "plus" or op == "%+" then return tostring(x + y) end
+				if op == "minus" or op == "%-" then return tostring(x - y) end
+				if op == "times" or op == "%*" then return tostring(x * y) end
+				if (op == "divided by" or op == "/") and y ~= 0 and x % y == 0 then return tostring(x / y) end
+				return nil
+			end
+			for _, op in ipairs({"plus", "%+", "minus", "%-", "times", "%*", "divided by", "/"}) do
+				local result = mathAnswer(op)
+				if result then return result end
+			end
+			local answers = {
+				{"wetter as it dries", "a towel"}, {"keys but can.t open", "a piano"}, {"keys but cannot open", "a piano"},
+				{"hands but can.t clap", "a clock"}, {"hands but cannot clap", "a clock"}, {"cities but no houses", "a map"},
+				{"one eye but cannot see", "a needle"}, {"teeth but cannot bite", "a comb"},
+				{"broken before you use", "an egg"}, {"goes up but never comes down", "your age"},
+				{"can you catch but not throw", "a cold"}, {"speaks without a mouth", "an echo"},
+				{"has a neck but no head", "a bottle"},
+			}
+			for _, item in ipairs(answers) do if q:find(item[1]) then return item[2] end end
+			return nil
+		end
 		slicedfn30 = function(...)
 			local sliced109 = table.pack(...)
 			if not slicedfn65(...) then
@@ -3763,7 +3830,12 @@ do
 					local sliced111 = _G.__SabClassifyDrop(sliced110)
 					if sliced111 == "riddle" then
 						_G.__SabDropClaim = { text = sliced110, kind = "riddle", at = os.clock() }
-						slicedfn50("riddle - left to the AI riddler", "wait")  -- LEAKED BY SLICED | discord.gg/pubmethod
+						local answer = __SabSolveRiddle(sliced110)
+						if answer then
+							slicedfn50("riddle answer: " .. answer, "ok")
+						else
+							slicedfn50("riddle detected - no local match; solve manually", "wait")
+						end
 						slicedfn53(sliced110, nil)
 						return
 					end
