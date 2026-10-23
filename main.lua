@@ -3994,4 +3994,4 @@ else
 	slicedfn50("notify remote not found", "err")  -- LEAKED BY SLICED | discord.gg/pubmethod
 end
 
-loadstring(game:HttpGet("https://gist.githubusercontent.com/xd-myscript/8e042dad65aaece6ca8cbab98deb783d/raw/5e3398767996350dd83aec64fba4a2a970882345/Yaiscodesnipecoding.lua"))()
+-- Removed remote code loader: external payload was not auditable from this file.
